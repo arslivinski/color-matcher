@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Color Matcher</title>
+    <style type="text/css">
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      * {
+        margin: 0;
+      }
+
+      html {
+        font-size: 100%;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        line-height: 1.5;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      code {
+        font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+      }
+
+      input,
+      button,
+      textarea,
+      select {
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import { h, render } from 'https://unpkg.com/preact@latest?module';
+      import { useState } from 'https://unpkg.com/preact@latest/hooks/dist/hooks.module.js?module';
+      import htm from 'https://unpkg.com/htm?module';
+
+      const html = htm.bind(h);
+
+      /**
+       * @typedef {Object} RGB
+       *    @prop {number} r
+       *    @prop {number} g
+       *    @prop {number} b
+       */
+
+      const loadsmart = {
+        'color-primary': '#33CC60',
+        'color-accent': '#0CA933',
+
+        'color-neutral-darkest': '#0A0A0B',
+        'color-neutral-darker': '#313336',
+        'color-neutral-dark': '#575C61',
+        'color-neutral': '#929AA1',
+        'color-neutral-light': '#CACCCF',
+        'color-neutral-lighter': '#E9EBEC',
+        'color-neutral-lightest': '#FCFCFC',
+        'color-neutral-white': '#FFFFFF',
+
+        'color-success-dark': '#2A5C85',
+        'color-success': '#55B0FB',
+        'color-success-light': '#C0E1F5',
+
+        'color-warning-dark': '#955800',
+        'color-warning': '#FFCE4F',
+        'color-warning-light': '#FFF5D6',
+
+        'color-danger-dark': '#8F002B',
+        'color-danger': '#E80045',
+        'color-danger-light': '#FFD6E2',
+      };
+
+      const alice = {
+        'color-primary': '#56748E',
+        'color-accent': '#0B6FB6',
+
+        'color-neutral-darkest': '#0A0A0B',
+        'color-neutral-darker': '#313336',
+        'color-neutral-dark': '#575C61',
+        'color-neutral': '#929AA1',
+        'color-neutral-light': '#CACCCF',
+        'color-neutral-lighter': '#E9EBEC',
+        'color-neutral-lightest': '#FCFCFC',
+        'color-neutral-white': '#FFFFFF',
+
+        'color-success-dark': '#267E4A',
+        'color-success': '#48C881',
+        'color-success-light': '#C0ECD3',
+
+        'color-warning-dark': '#955800',
+        'color-warning': '#FFCE4F',
+        'color-warning-light': '#FFF5D6',
+
+        'color-danger-dark': '#8F002B',
+        'color-danger': '#E80045',
+        'color-danger-light': '#FFD6E2',
+      };
+
+      const themes = [
+        {
+          name: 'Loadsmart',
+          tokens: loadsmart,
+        },
+        {
+          name: 'Alice',
+          tokens: alice,
+        },
+      ];
+
+      /**
+       * https://www.compuphase.com/cmetric.htm
+       *
+       * @param {RGB} c1
+       * @param {RGB} c2
+       * @returns {number}
+       */
+      function colorDistance(c1, c2) {
+        const redMean = (c1.r + c2.r) / 2;
+        const dR = c1.r - c2.r;
+        const dG = c1.g - c2.g;
+        const dB = c1.b - c2.b;
+
+        return Math.sqrt((2 + redMean / 256) * dR ** 2 + 4 * dG ** 2 + (2 + (255 - redMean) / 256) * dB ** 2);
+      }
+
+      /**
+       * @param {string} hex
+       * @returns {RGB}
+       */
+      function hexToRgb(hex) {
+        let hexNum = hex;
+
+        if (hex.startsWith('#')) {
+          hexNum = hex.slice(1);
+        }
+
+        let r;
+        let g;
+        let b;
+
+        if (hexNum.length === 3) {
+          r = hexNum.slice(0, 1);
+          r += r;
+
+          g = hexNum.slice(1, 2);
+          g += g;
+
+          b = hexNum.slice(2);
+          b += b;
+        } else if (hexNum.length === 6) {
+          r = hexNum.slice(0, 2);
+
+          g = hexNum.slice(2, 4);
+
+          b = hexNum.slice(4);
+        } else {
+          throw new TypeError('Invalid color');
+        }
+
+        r = parseInt(r, 16);
+        g = parseInt(g, 16);
+        b = parseInt(b, 16);
+
+        return {
+          r,
+          g,
+          b,
+        };
+      }
+
+      function compute(theme, color) {
+        const colorRgb = hexToRgb(color);
+
+        let result = {
+          distance: Number.MAX_VALUE,
+        };
+
+        const tokens = Object.keys(theme.tokens);
+
+        for (const token of tokens) {
+          const tokenColor = theme.tokens[token];
+          const distance = colorDistance(colorRgb, hexToRgb(tokenColor));
+
+          if (distance < result.distance) {
+            result = {
+              distance,
+              token,
+            };
+          }
+        }
+
+        return result;
+      }
+
+      function App() {
+        const [theme, setTheme] = useState(themes[0]);
+        const [color, setColor] = useState('');
+        const [result, setResult] = useState();
+
+        function handleSubmit(event) {
+          event.preventDefault();
+
+          setResult(compute(theme, color));
+        }
+
+        function handleChangeTheme(event) {
+          setResult();
+          setTheme(themes.find((item) => item.name === event.target.value));
+        }
+
+        function handleChangeColor(event) {
+          setResult();
+          setColor(event.target.value);
+        }
+
+        return html`
+          <div>
+            <form onSubmit=${handleSubmit}>
+              <div>
+                <label htmlFor="theme">Theme:</label>
+                <select id="theme" name="theme" value=${theme.name} onChange=${handleChangeTheme}>
+                  ${themes.map((item) => html`
+                    <option key=${item.name} value=${item.name}>${item.name}</option>
+                  `)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="color">Color:</label>
+                <input id="color" name="color" value=${color} onChange=${handleChangeColor} />
+              </div>
+              <div>
+                <button type="submit">Compute</button>
+              </div>
+            </form>
+            ${result != null && html`
+              <table>
+                <thead>
+                  <tr>
+                    <th>Token</th>
+                    <th>Color</th>
+                    <th>Compare</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${Object.keys(theme.tokens).map(
+                    (token) => html`
+                      <tr key=${token} style=${{ backgroundColor: result.token === token ? 'tomato' : 'transparent' }}>
+                        <td>${token}</td>
+                        <td style=${{ backgroundColor: theme.tokens[token] }} />
+                        <td style=${{ backgroundColor: color }} />
+                      </tr>
+                    `,
+                  )}
+                </tbody>
+              </table>
+            `}
+          </div>
+        `;
+      }
+
+      render(html`<${App} />`, document.getElementById('root'));
+    </script>
+  </body>
+</html>
